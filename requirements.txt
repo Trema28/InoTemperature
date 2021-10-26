@@ -1,0 +1,3 @@
+requests
+pyserial==3.5
+pyTelegramBotAPI==3.7.6
