@@ -1,5 +1,5 @@
-ids.txt
-log.log
-TOKEN
+admins.txt
+users.txt
+TOKEN.txt
 __pycache__
 .vscode
