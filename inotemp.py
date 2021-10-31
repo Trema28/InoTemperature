@@ -1,4 +1,6 @@
 import serial
+# from glob import glob
+# glob.glob('/dev/ttyUSB*')
 
 class InoTemperature(serial.Serial):
     ''' '''
@@ -39,10 +41,10 @@ class InoTemperature(serial.Serial):
         self._send([self._CMD_PING])
         return int(self._receive()[1])
 
-    def getTemperature(self):
+    def get_temperature(self):
         self._send([self._CMD_GETTEMP])
-        temp = self._receive()
-        return (float(temp[1])/1023.0) * 5.0 * 1000/10
+        temp = self.readlines()
+        return float(temp[0])
 
 
 if __name__ == '__main__':

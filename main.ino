@@ -1,19 +1,30 @@
+#include <OneWire.h>
+#include <DallasTemperature.h>
+
+#define ONE_WIRE_BUS 4
+#define TEMPERATURE_PRECISION 12
+
 #define PROTO_SOT 0x2
 #define PROTO_EOT 0x3
 
 #define CMD_PING 'p'
 #define CMD_GETTEMP 'g'
 
-#define PIN_TEMP A0
+OneWire oneWire(ONE_WIRE_BUS);
+DallasTemperature sensor(&oneWire);
+DeviceAddress Thermometer;
 
 bool inputAvailable = false;
 bool inputComplete = false;
 String input = "";
 
-void ledCheck(int time = 1000);
+// void ledCheck(int time = 1000);
 
 void setup() {
-    pinMode(PIN_TEMP, INPUT);
+    sensor.begin();
+    sensor.getAddress(Thermometer, 0);
+    sensor.setResolution(Thermometer, TEMPERATURE_PRECISION);
+
     Serial.begin(9600);
     input.reserve(20);
 }
@@ -28,11 +39,12 @@ void loop() {
             Serial.write(PROTO_EOT);
         }
         else if (input[0] == CMD_GETTEMP) {
-            Serial.write(PROTO_SOT);
-            Serial.print(CMD_GETTEMP);
-            Serial.print(',');
-            Serial.print(getTemperature());
-            Serial.write(PROTO_EOT);
+            // Serial.write(PROTO_SOT);
+            // Serial.print(CMD_GETTEMP);
+            // Serial.print(',');
+            // Serial.print(String(getTemperature()));
+            // Serial.write(PROTO_EOT);
+            Serial.println(String(getTemperature()));
         }
 
         input = "";
@@ -59,20 +71,13 @@ void serialEvent() {
     }
 }
 
-// void sendData(char *data, int len) {
-//     Serial.write(PROTO_SOH);
-//     Serial.print(len);
-//     Serial.write(PROTO_SOT);
-//     Serial.print(data);
-//     Serial.write(PROTO_EOT);
+float getTemperature() {
+    sensor.requestTemperatures();
+    return sensor.getTempC(Thermometer);
+}
+
+// void ledCheck(int time) {
+//     digitalWrite(LED_BUILTIN, HIGH);
+//     delay(time);
+//     digitalWrite(LED_BUILTIN, LOW);
 // }
-
-int getTemperature() {
-    return analogRead(PIN_TEMP);
-}
-
-void ledCheck(int time) {
-    digitalWrite(LED_BUILTIN, HIGH);
-    delay(time);
-    digitalWrite(LED_BUILTIN, LOW);
-}
