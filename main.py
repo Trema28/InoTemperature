@@ -1,3 +1,4 @@
+from sys import argv
 from os.path import exists
 from datetime import timedelta
 
@@ -6,9 +7,15 @@ import telebot
 from inotemp import InoTemperature as Ino
 
 TOKEN = ''
+
 FILE_TOKEN = 'TOKEN.txt'
 FILE_ADMINS = 'admins.txt'
 FILE_USERS = 'users.txt'
+
+PORT = None
+
+if len(argv) > 1:
+    PORT = argv[1]
 
 for i in [FILE_TOKEN, FILE_ADMINS, FILE_USERS]:
     if not exists(i):
@@ -23,8 +30,6 @@ if not TOKEN:
     print('write the TOKEN in ' + FILE_TOKEN)
     exit(1)
 
-# todo get ttyUSB from args
-ino = Ino('/dev/ttyUSB0', timeout=.1)
 bot = telebot.TeleBot(TOKEN)
 
 def read_ids_file(file):
@@ -78,10 +83,14 @@ def command_ping(message):
     start_time = ino.ping()
     bot.send_message(
         message.chat.id,
-        str(timedelta(milliseconds=start_time)).rsplit('.',1)[0])
+        str(timedelta(milliseconds=start_time)).rsplit('.', 1)[0])
 
 @bot.message_handler(func=id_check, commands=['temp'])
 def command_temp(message):
     bot.send_message(message.chat.id, f'{ino.get_temperature():.2f} °C')
+
+
+# ino = Ino('/dev/ttyUSB0')
+ino = Ino(PORT)
 
 bot.infinity_polling(timeout=60, long_polling_timeout=60*5)
