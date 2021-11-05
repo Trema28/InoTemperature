@@ -1,9 +1,9 @@
 from sys import argv
-from os.path import exists
 from datetime import timedelta
 
 import telebot
 
+from utils import filefuncs
 from inotemp import InoTemperature as Ino
 
 TOKEN = ''
@@ -14,83 +14,152 @@ FILE_USERS = 'users.txt'
 
 PORT = None
 
-if len(argv) > 1:
+if not PORT and len(argv) > 1:
     PORT = argv[1]
 
-for i in [FILE_TOKEN, FILE_ADMINS, FILE_USERS]:
-    if not exists(i):
-        with open(i, 'x'):
-            pass
-        print('file created: ' + i)
-
-with open('TOKEN.txt') as f:
-    TOKEN = f.read().strip()
+filefuncs.create_files([FILE_TOKEN, FILE_ADMINS, FILE_USERS])
 
 if not TOKEN:
-    print('write the TOKEN in ' + FILE_TOKEN)
+    TOKEN = filefuncs.read_token(FILE_TOKEN)
+
+if not TOKEN:
     exit(1)
 
-bot = telebot.TeleBot(TOKEN)
+ino = Ino(PORT)
+bot = telebot.TeleBot(TOKEN, threaded=False)
 
-def read_ids_file(file):
-    with open(file) as f:
-        ids = f.read().strip().split('\n')
-    return ids
+ADMINS = filefuncs.read_ids(FILE_ADMINS)
+USERS = filefuncs.read_ids(FILE_USERS)
+
+QUEUE = []
+
+def save_admin(user_id, username):
+    filefuncs.write_id(FILE_ADMINS, user_id, username)
+    ADMINS[0].append(str(user_id))
+    ADMINS[1].append(username)
+
+def save_user(user_id, username):
+    filefuncs.write_id(USERS, user_id, username)
+    USERS[0].append(str(user_id))
+    USERS[1].append(username)
 
 def is_admin(message):
-    if str(message.from_user.id) in read_ids_file(FILE_ADMINS):
+    if str(message.from_user.id) in ADMINS[0]:
         return True
     return False
 
 def is_user(message):
-    if str(message.from_user.id) in read_ids_file(FILE_USERS):
+    if str(message.from_user.id) in USERS[0]:
         return True
     return False
 
 def id_check(message):
     if is_admin(message) or is_user(message):
         return True
-
-    bot.send_message(
-        message.chat.id,
-        f'wrong id: {message.from_user.id}')
-
-    for i in read_ids_file(FILE_ADMINS):
-        bot.send_message(
-            i,
-            f'user messaged the bot: {message.from_user.id}\n'
-          + 'use /adduser or /addadmin')
-
-    # todo add registration
     return False
 
-@bot.message_handler(func=id_check, commands=['start', 'help'])
+@bot.message_handler(commands=['start'])
 def command_start(message):
-    print(message.text)
-    bot.send_message(
-        message.chat.id,
-        '/ping - get time since launch\n'
-        '/temp - get temperature from sensor',
-        timeout=1)
+    if id_check(message):
+        return
 
-@bot.message_handler(func=is_admin, commands=['stop'])
-def command_restart(message):
-    print('stopped')
-    bot.stop_polling()
+    user_id = message.from_user.id
+    username = message.from_user.username
 
-@bot.message_handler(func=id_check, commands=['ping'])
+    if not ADMINS[0]:
+        save_admin(user_id, username)
+
+        text = 'hello admin'
+        bot.send_message(message.chat.id, text)
+
+    elif user_id not in QUEUE:
+        QUEUE.append([user_id, username])
+
+        text = (f'@{username}:`{user_id}` messaged the bot\n'
+             + 'use /adduser, /addadmin or ignore it')
+        for i in ADMINS[0]:
+            bot.send_message(i, text, parse_mode="Markdown")
+
+        text = 'wait till admin adds you'
+        bot.send_message(message.chat.id, text)
+
+@bot.message_handler(func=id_check, commands=['help'])
+def command_start(message):
+    text = ('/start\n'
+          + '/time - get bot running time\n'
+          + '/temp - get temperature from sensors\n'
+          + '/queue\n'
+          + '/all\n'
+          + '/adduser id [id ...]\n'
+          + '/addadmin id [id ...]\n'
+          + '/del id [id ...]')
+    bot.send_message(message.chat.id, text)
+
+@bot.message_handler(func=id_check, commands=['time'])
 def command_ping(message):
-    start_time = ino.ping()
-    bot.send_message(
-        message.chat.id,
-        str(timedelta(milliseconds=start_time)).rsplit('.', 1)[0])
+    text = str(timedelta(milliseconds=ino.ping())).rsplit('.', 1)[0]
+    bot.send_message(message.chat.id, text)
 
 @bot.message_handler(func=id_check, commands=['temp'])
 def command_temp(message):
-    bot.send_message(message.chat.id, f'{ino.get_temperature():.2f} °C')
+    text = ''.join(
+                f'{n + 1}: {i}°C\n' for n, i in
+                    enumerate(ino.get_temperatures()))
+    bot.send_message(message.chat.id, text)
 
+@bot.message_handler(func=is_admin, commands=['queue'])
+def command_temp(message):
+    # todo
+    text = 'done'
+    bot.send_message(message.chat.id, text)
 
-# ino = Ino('/dev/ttyUSB0')
-ino = Ino(PORT)
+@bot.message_handler(func=is_admin, commands=['all'])
+def command_temp(message):
+    # todo
+    text = 'done'
+    bot.send_message(message.chat.id, text)
+
+@bot.message_handler(func=is_admin, commands=['adduser'])
+def command_temp(message):
+    ...
+    # todo
+    # ids = message.text.split(' ')
+
+    # if len(ids) <= 1:
+    #     text = 'id is required'
+    #     bot.send_message(message.chat.id, text)
+    #     return
+
+    # ids.pop(0)
+
+    # try:
+    #     ids = map(int, ids)
+    # except ValueError:
+    #     text = 'bad id'
+    #     bot.send_message(message.chat.id, text)
+    #     return
+
+    # for i in ids:
+    #     if i not in [*zip(*QUEUE)][0]:
+    #         text = 'id is not in queue ' + i
+    #         bot.send_message(message.chat.id, text)
+    #         continue
+
+    #     filefuncs.write_id(FILE_USERS, i, username)
+
+    # text = 'done'
+    # bot.send_message(message.chat.id, text)
+
+@bot.message_handler(func=is_admin, commands=['addadmin'])
+def command_temp(message):
+    # todo
+    text = 'done'
+    bot.send_message(message.chat.id, text)
+
+@bot.message_handler(func=is_admin, commands=['del'])
+def command_temp(message):
+    # todo
+    text = 'done'
+    bot.send_message(message.chat.id, text)
 
 bot.infinity_polling(timeout=60, long_polling_timeout=60*5)

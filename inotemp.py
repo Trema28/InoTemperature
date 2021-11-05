@@ -6,7 +6,7 @@ from glob import glob
 class InoTemperature(serial.Serial):
     ''' '''
 
-    _HELLO_WORD = b'A'
+    _CONN_REQ = b'A'
     _CMD_PING = b'p'
     _CMD_GETTEMP = b'g'
 
@@ -25,10 +25,10 @@ class InoTemperature(serial.Serial):
                 exit(1)
 
     def _establish_contact(self):
+        self.readlines()
         for i in range(3):
-            if self._HELLO_WORD in self.readline():
-                self.write(self._HELLO_WORD)
-                self.readlines()
+            self.write(self._CONN_REQ)
+            if self._CONN_REQ in self.readline():
                 return True
             sleep(.3)
         return False
@@ -56,10 +56,9 @@ class InoTemperature(serial.Serial):
 
     def ping(self):
         data = self._rquest_data(self._CMD_PING)
-        print(data)
         return int(data)
 
-    def get_temperature(self):
+    def get_temperatures(self):
         data = self._rquest_data(self._CMD_GETTEMP)
-        print(data)
-        return float(data)
+        data = data.decode().strip().split(' ')
+        return [*map(float, data)]

@@ -4,28 +4,22 @@
 #define ONE_WIRE_BUS 4
 #define TEMPERATURE_PRECISION 12
 
-#define HELLO_WORD 'A'
+#define CONN_REQ 'A'
 #define CMD_PING 'p'
 #define CMD_GETTEMP 'g'
 
 OneWire oneWire(ONE_WIRE_BUS);
+
 DallasTemperature sensor(&oneWire);
-DeviceAddress Thermometer;
+int devicesNum = 0;
 
 void setup() {
     Serial.begin(9600);
 
-    while (Serial.available() <= 0) {
-        Serial.println(HELLO_WORD);
-        ledCheck();
-    }
-    while (Serial.available()) {
-        Serial.read();
-    }
-
     sensor.begin();
-    sensor.getAddress(Thermometer, 0);
-    sensor.setResolution(Thermometer, TEMPERATURE_PRECISION);
+    sensor.setResolution(TEMPERATURE_PRECISION);
+
+    devicesNum = sensor.getDeviceCount();
 }
 
 void loop() {
@@ -36,19 +30,19 @@ void loop() {
             Serial.println(String(millis()));
         }
         else if (input == CMD_GETTEMP) {
-            Serial.println(String(getTemperature()));
+            printTemperatures();
+        }
+        else if (input == CONN_REQ) {
+            Serial.println(CONN_REQ);
         }
     }
 }
 
-float getTemperature() {
+void printTemperatures() {
     sensor.requestTemperatures();
-    return sensor.getTempC(Thermometer);
-}
-
-void ledCheck() {
-    digitalWrite(LED_BUILTIN, HIGH);
-    delay(200);
-    digitalWrite(LED_BUILTIN, LOW);
-    delay(100);
+    for (int i = 0; i < devicesNum; ++i) {
+        Serial.print(sensor.getTempCByIndex(i));
+        Serial.print(' ');
+    }
+    Serial.println(' ');
 }
