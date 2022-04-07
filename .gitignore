@@ -1,11 +1,13 @@
-admins.txt
-users.txt
 TOKEN.txt
+OWNER_ID.txt
+database.db
 
 __pycache__
 
 .vscode/.*
 .vscode/*
 !.vscode/arduino.json
+
+.env
 
 build
