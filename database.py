@@ -67,24 +67,3 @@ class DataBase:
         self.cur.execute('''UPDATE users SET role = ? WHERE id = ?''',
                          (role, id))
         self.con.commit()
-
-
-if __name__ == '__main__':
-    from os import remove
-
-    file = 'test.db'
-
-    db = DataBase(file)
-
-    db.add_user('31', 'qwer', db.queued)
-    print(db.get_all_users())
-
-    db.set_role('31', db.admin)
-    print(db.get_all_users())
-
-    print(db.get_user('31'))
-
-    db.del_user('31')
-    print(db.get_all_users())
-
-    remove(file)

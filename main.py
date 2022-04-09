@@ -32,9 +32,6 @@ if OWNER_ID == '':
         with open(FILE_OWNER_ID, 'x'):
             pass
 
-    # assert OWNER_ID, '!!! need owner id !!!'
-    # assert OWNER_ID.isnumeric(), '!!! wrong owner id !!!'
-
 if PORT == '':
     PORT = argv[1] if len(argv) > 1 else None
 
