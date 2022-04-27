@@ -4,7 +4,7 @@ from telebot import TeleBot
 
 from database import DataBase
 from inotemp import InoTemperature as Ino
-from set_handlers import set_handlers
+from bot import set_handlers
 
 TOKEN = ''
 OWNER_ID = ''
