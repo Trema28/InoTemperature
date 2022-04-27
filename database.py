@@ -17,18 +17,11 @@ class DataBase:
 
     def __init__(self, file_name):
         self.con = sqlite3.connect(file_name)
-
         self.cur = self.con.cursor()
 
-        tables = self.cur.execute('''SELECT name FROM sqlite_master''')
-        tables = tables.fetchall()
-
-        if tables != []:
-            tables = [*zip(*tables)][0]
-
-        if 'users' not in tables:
-            self.cur.execute('''CREATE TABLE users (id TEXT, username TEXT, role TEXT)''')
-            self.con.commit()
+        self.cur.execute('''CREATE TABLE IF NOT EXISTS users (id TEXT, username TEXT, role TEXT)''')
+        self.cur.execute('''CREATE TABLE IF NOT EXISTS plot (time INTEGER, temperatures BLOB)''')
+        self.con.commit()
 
     def __role_chek(self, role):
         assert role in (self.admin, self.user, self.queued), 'wrong role'
@@ -67,3 +60,16 @@ class DataBase:
         self.cur.execute('''UPDATE users SET role = ? WHERE id = ?''',
                          (role, id))
         self.con.commit()
+
+    def save_plot_data(self, time, temps: list):
+        t = temps.__str__()[1:-1]
+        self.cur.execute('''INSERT INTO plot (time, temperatures) VALUES (?, ?)''',
+                         (time, t))
+        self.con.commit()
+
+    def get_all_plot_data(self):
+        plot = self.cur.execute('''SELECT * FROM plot''')
+        return plot.fetchall()
+
+    def del_old_plot_data(self, amount):
+        ...

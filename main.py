@@ -1,10 +1,7 @@
 from sys import argv
+import asyncio
 
-from telebot import TeleBot
-
-from database import DataBase
-from inotemp import InoTemperature as Ino
-from bot import set_handlers
+import bot
 
 TOKEN = ''
 OWNER_ID = ''
@@ -35,10 +32,6 @@ if OWNER_ID == '':
 if PORT == '':
     PORT = argv[1] if len(argv) > 1 else None
 
-ino = Ino(port=PORT)
-db = DataBase(FILE_DB)
-bot = TeleBot(TOKEN, threaded=False)
 
-set_handlers(bot, ino, db, OWNER_ID)
-
-bot.infinity_polling(timeout=60, long_polling_timeout=60*5)
+if __name__ == '__main__':
+    asyncio.run(bot.run(PORT, FILE_DB, TOKEN, OWNER_ID))

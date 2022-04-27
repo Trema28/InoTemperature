@@ -1,6 +1,21 @@
-from datetime import timedelta
+import datetime
+import time
+import asyncio
 
-def set_handlers(bot, ino, db, OWNER_ID):
+from telebot.async_telebot import AsyncTeleBot
+import matplotlib.pyplot as plt
+import matplotlib.dates as md
+import PIL
+
+from inotemp import InoTemperature
+from database import DataBase
+
+TIMER = 1
+
+async def set_handlers(bot: AsyncTeleBot,
+                       ino: InoTemperature,
+                       db: DataBase,
+                       OWNER_ID):
 
     def get_admins():
         return db.get_users_by_role(db.admin)
@@ -63,7 +78,7 @@ def set_handlers(bot, ino, db, OWNER_ID):
 
 
     @bot.message_handler(commands=['start'])
-    def command_start(message):
+    async def command_start(message):
         if id_check(message) or is_in_queue(message):
             return
 
@@ -72,71 +87,76 @@ def set_handlers(bot, ino, db, OWNER_ID):
 
         if OWNER_ID == '':
             text = user_id
-            bot.send_message(message.chat.id, text)
+            await bot.send_message(message.chat.id, text)
         else:
             save_in_queue(message)
 
             text = ('new user in queue\n'
                     f'@{username}:`{user_id}`\n'
                     'use /adduser, /addadmin or ignore it')
-            bot.send_message(OWNER_ID, text, parse_mode='Markdown')
+            await bot.send_message(OWNER_ID, text, parse_mode='Markdown')
             for id, _ in get_admins():
-                bot.send_message(id, text, parse_mode='Markdown')
+                await bot.send_message(id, text, parse_mode='Markdown')
 
             text = 'wait until admin adds you'
-            bot.send_message(message.chat.id, text)
+            await bot.send_message(message.chat.id, text)
 
     @bot.message_handler(func=id_check, commands=['help'])
-    def command_help(message):
+    async def command_help(message):
         text = ('/start - nothing for registered users\n'
                 '/help - sends this message\n'
+                '\n'
                 '/time - get bot running time\n'
-                '/temp - get temperatures from sensors\n')
+                '/temp - get temperatures from sensors\n'
+                '/plot - \n')
         if is_admin(message):
             text += (
+                '/settimer time\n'
+                '\n'
                 '/queue - sends a list of unregistered users\n'
                 '/all - sends a list of all registered users\n'
                 '/adduser id [id ...]\n'
                 '/addadmin id [id ...]\n'
                 '/del id [id ...]')
-        bot.send_message(message.chat.id, text)
+        await bot.send_message(message.chat.id, text)
 
     @bot.message_handler(func=id_check, commands=['time'])
-    def command_ping(message):
-        text = str(timedelta(milliseconds=ino.ping())).rsplit('.', 1)[0]
-        bot.send_message(message.chat.id, text)
+    async def command_ping(message):
+        text = str(datetime.timedelta(milliseconds=ino.ping()))
+        text = text.rsplit('.', 1)[0]
+        await bot.send_message(message.chat.id, text)
 
     @bot.message_handler(func=id_check, commands=['temp'])
-    def command_temp(message):
+    async def command_temp(message):
         text = ''.join(
                     f'{n}: {i}°C\n' for n, i in
                         enumerate(ino.get_temperatures(), start=1))
-        bot.send_message(message.chat.id, text)
+        await bot.send_message(message.chat.id, text)
 
     @bot.message_handler(func=is_admin, commands=['queue'])
-    def command_queue(message):
+    async def command_queue(message):
         text = ''.join(f'@{name}:`{id}`' for id, name in get_queued_users())
         text = 'queue:\n' + text
 
-        bot.send_message(message.chat.id, text, parse_mode='Markdown')
+        await bot.send_message(message.chat.id, text, parse_mode='Markdown')
 
     @bot.message_handler(func=is_admin, commands=['all'])
-    def command_all(message):
+    async def command_all(message):
         t = ''.join(f'@{name}:`{id}`' for id, name in get_admins())
         text = 'admins:\n' + t
 
         t = ''.join(f'@{name}:`{id}`' for id, name in get_users())
         text += '\n\nusers:\n' + t
 
-        bot.send_message(message.chat.id, text, parse_mode='Markdown')
+        await bot.send_message(message.chat.id, text, parse_mode='Markdown')
 
     @bot.message_handler(func=is_admin, commands=['adduser'])
-    def command_adduser(message):
+    async def command_adduser(message):
         ids = message.text.split(' ')
 
         if len(ids) <= 1:
             text = 'id is required'
-            bot.send_message(message.chat.id, text)
+            await bot.send_message(message.chat.id, text)
             return
 
         ids.pop(0)
@@ -156,15 +176,15 @@ def set_handlers(bot, ino, db, OWNER_ID):
             make_user(id)
             text = 'user added ' + id + '\n'
 
-        bot.send_message(message.chat.id, text)
+        await bot.send_message(message.chat.id, text)
 
     @bot.message_handler(func=is_admin, commands=['addadmin'])
-    def command_addadmin(message):
+    async def command_addadmin(message):
         ids = message.text.split(' ')
 
         if len(ids) <= 1:
             text = 'id is required'
-            bot.send_message(message.chat.id, text)
+            await bot.send_message(message.chat.id, text)
             return
 
         ids.pop(0)
@@ -184,15 +204,15 @@ def set_handlers(bot, ino, db, OWNER_ID):
             make_admin(id)
             text += 'admin added ' + id + '\n'
 
-        bot.send_message(message.chat.id, text)
+        await bot.send_message(message.chat.id, text)
 
     @bot.message_handler(func=is_admin, commands=['del'])
-    def command_del(message):
+    async def command_del(message):
         ids = message.text.split(' ')
 
         if len(ids) <= 1:
             text = 'id is required'
-            bot.send_message(message.chat.id, text)
+            await bot.send_message(message.chat.id, text)
             return
 
         ids.pop(0)
@@ -201,4 +221,89 @@ def set_handlers(bot, ino, db, OWNER_ID):
             db.del_user(id)
 
         text = 'done'
-        bot.send_message(message.chat.id, text)
+        await bot.send_message(message.chat.id, text)
+
+    @bot.message_handler(func=id_check, commands=['plot'])
+    async def command_plot(message):
+        data = db.get_all_plot_data()
+        data = [*zip(*data)]
+
+        unix_time = data[0]
+        temps = data[1]
+        temps = [[*map(float, i.split(', '))] for i in temps]
+        date = [datetime.datetime.fromtimestamp(i) for i in unix_time]
+
+        fig, ax = plt.subplots()
+        plt.grid(True)
+
+        xfmt = md.DateFormatter('%H:%M')
+        ax.xaxis.set_major_formatter(xfmt)
+
+        ax.plot(date, temps, label=range(1, len(temps[0]) + 1))
+        ax.legend(loc='best')
+
+        fig.canvas.draw()
+        temp_canvas = fig.canvas
+        plt.close()
+
+        pil_image = PIL.Image.frombytes('RGB', temp_canvas.get_width_height(), temp_canvas.tostring_rgb())
+
+        await bot.send_chat_action(message.chat.id, 'upload_photo')
+        await bot.send_photo(message.chat.id, pil_image)
+
+    @bot.message_handler(func=is_admin, commands=['settimer'])
+    async def command_settimer(message):
+        args = message.text.split(' ')
+
+        if len(args) <= 1:
+            text = 'delay is required'
+            await bot.send_message(message.chat.id, text)
+            return
+
+        if not args[1].isnumeric():
+            text = 'delay should be integer'
+            await bot.send_message(message.chat.id, text)
+            return
+
+        delay = int(args[1])
+
+        if 60*24 < delay:
+            text = 'delay out of range 0 - 60*24'
+            await bot.send_message(message.chat.id, text)
+            return
+
+        global TIMER
+        TIMER = delay
+
+        if delay != 0:
+            text = f'timer = {delay}'
+        else:
+            text = 'timer off'
+        await bot.send_message(message.chat.id, text)
+
+async def tempr_recorder(ino: InoTemperature, db: DataBase):
+    while True:
+        timer = TIMER
+        for _ in range(timer):
+            await asyncio.sleep(60)
+
+            if timer != TIMER:
+                break
+
+            if timer == 0:
+                break
+        else:
+            utime = int(time.time())
+            temps = ino.get_temperatures()
+            db.save_plot_data(utime, temps)
+
+async def run(PORT, FILE_DB, TOKEN, OWNER_ID):
+    ino = InoTemperature(port=PORT)
+    db = DataBase(FILE_DB)
+    bot = AsyncTeleBot(TOKEN)
+
+    await set_handlers(bot, ino, db, OWNER_ID)
+
+    await asyncio.gather(
+        bot.infinity_polling(timeout=60, request_timeout=60*5),
+        tempr_recorder(ino, db))
